@@ -125,14 +125,8 @@ macro unpackVarIntLogic(ii: int): stmt =
 
     return parseStmt(logic)
 
-
-# This could probably be done more efficiently with bit shifts.
-# TODO: Get someone that's smarter than me to implement this as bit shifts.
-proc unpackZigZagNum[T](data: T): T =
-    if (data mod 2) != 0:
-        return cast[T](0) - ((data div 2) + 1)
-    else:
-        return data div 2
+proc unpackZigZagNum(data: uint64): uint64 =
+    return (data shr 1) xor uint64((int64(data and 1) shl 63) shr 63)
 
 proc unpackVarInt*(buffer: var OrientPacket): OrientVarInt =
     var current: uint8
