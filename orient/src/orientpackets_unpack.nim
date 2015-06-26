@@ -13,64 +13,49 @@ import orienttypes
 import orientsystemextensions
 
 proc unpackByte*(buffer: var OrientPacket): OrientByte =
-    var unpacked: OrientByte
-    copyMem(addr(unpacked), buffer.buffer, sizeof(OrientByte))
+    copyMem(addr(result), buffer.buffer, sizeof(OrientByte))
 
     buffer += sizeof(OrientByte)
 
-    return unpacked
-
 proc unpackBoolean*(buffer: var OrientPacket): OrientBoolean =
-    var unpacked: OrientByte = unpackByte(buffer)
+    var unpacked = unpackByte(buffer)
 
-    if cast[int](unpacked) != 0:
-        return false
+    if int(unpacked) != 0:
+        result = false
     else:
-        return true
+        result = true
 
 proc unpackShort*(buffer: var OrientPacket): OrientShort =
-    var unpacked: OrientShort
-    copyMem(addr(unpacked), buffer.buffer, sizeof(OrientShort))
+    copyMem(addr(result), buffer.buffer, sizeof(OrientShort))
+    result = result.ntohs
 
     buffer += sizeof(OrientShort)
 
-    return unpacked.ntohs
-
 proc unpackInt*(buffer: var OrientPacket): OrientInt =
-    var unpacked: OrientInt
-    copyMem(addr(unpacked), buffer.buffer, sizeof(OrientInt))
+    copyMem(addr(result), buffer.buffer, sizeof(OrientInt))
+    result = result.ntohl
 
     buffer += sizeof(OrientInt)
 
-    return unpacked.ntohl
-
 proc unpackLong*(buffer: var OrientPacket): OrientLong =
-    var unpacked: OrientLong
-    copyMem(addr(unpacked), buffer.buffer, sizeof(OrientLong))
+    copyMem(addr(result), buffer.buffer, sizeof(OrientLong))
+    result = result.ntohll
 
     buffer += sizeof(OrientLong)
 
-    return unpacked.ntohll
-
 proc unpackBytes*(buffer: var OrientPacket, length: int): OrientBytes not nil =
-    var unpacked: OrientBytes not nil
-
     if length > 0:
-        unpacked = cast[OrientBytes not nil](newSeq[OrientByte](length))
-        copyMem(addr(unpacked[0]), buffer.buffer, length)
+        result = cast[OrientBytes not nil](OrientBytes(newSeq[OrientByte](length)))
+        copyMem(addr(result[0]), buffer.buffer, length)
         buffer += length
     else:
-        unpacked = cast[OrientBytes not nil](newSeq[OrientByte](0))
-
-    return unpacked
+        result = cast[OrientBytes not nil](OrientBytes(newSeq[OrientByte](0)))
 
 proc unpackString*(buffer: var OrientPacket, length: int): OrientString =
-    var unpacked = newString(length)
+    result = newString(length)
+    copyMem(addr(result[0]), buffer.buffer, length)
 
-    copyMem(addr(unpacked[0]), buffer.buffer, length)
     buffer += length
-
-    return unpacked
 
 # OrientDB's binary protocol uses varints + ZigZag encoding.
 # This saves a trivial amount of space but increases computational complexity, why oh why do they do this to us?
@@ -84,7 +69,7 @@ proc unpackString*(buffer: var OrientPacket, length: int): OrientString =
 # let part1: uint64 = (cast[ptr uint8](buffer.buffer))[]
 # buffer += 1
 #
-# return return OrientVarInt(unpackZigZagNum(part0 or (part1 shl 7)))
+# result = OrientVarInt(unpackZigZagNum(part0 or (part1 shl 7)))
 #
 # We call this once for each distinct varint length.
 macro unpackVarIntLogic(ii: int): stmt =
@@ -99,7 +84,7 @@ macro unpackVarIntLogic(ii: int): stmt =
     logic &= "let part" & $i & ": uint64 = (cast[ptr uint8](buffer.buffer))[]\n"
     logic &= "buffer += 1\n\n"
 
-    logic &= "return OrientVarInt(unpackZigZagNum(part0"
+    logic &= "result = OrientVarInt(unpackZigZagNum(part0"
 
     for j in countUp(1, i):
         let shift = 7 * j
@@ -113,7 +98,7 @@ macro unpackVarIntLogic(ii: int): stmt =
     return parseStmt(logic)
 
 proc unpackZigZagNum(data: uint64): uint64 =
-    return (data shr 1) xor uint64((int64(data and 1) shl 63) shr 63)
+    result = (data shr 1) xor uint64((int64(data and 1) shl 63) shr 63)
 
 proc unpackVarInt*(buffer: var OrientPacket): OrientVarInt =
     var current: uint8
