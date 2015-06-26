@@ -10,20 +10,7 @@ import macros
 from rawsockets import ntohs, ntohl
 
 import orienttypes
-
-proc ntohll*(x: int64): int64 =
-  ## Converts 64-bit integers from network to host byte order.
-  ## On machines where the host byte order is the same as network byte order,
-  ## this is a no-op; otherwise, it performs an 8-byte swap operation.
-  when cpuEndian == bigEndian: result = x
-  else: result = (x shr 56)                      or
-                 (x shr 40 and 0xff00)           or
-                 (x shr 24 and 0xff0000)         or
-                 (x shr  8 and 0xff000000)       or
-                 (x shl  8 and 0xff00000000)     or
-                 (x shl 24 and 0xff0000000000)   or
-                 (x shl 40 and 0xff000000000000) or
-                 (x shl 56)
+import orientsystemextensions
 
 proc unpackByte*(buffer: var OrientPacket): OrientByte =
     var unpacked: OrientByte
