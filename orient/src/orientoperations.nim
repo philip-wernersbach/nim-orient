@@ -79,14 +79,12 @@ proc recvResponseCommand(connection: var OrientConnection): OrientRecords =
         raise newException(OrientDBFeatureUnsupportedInLibrary, "This library does not support synch-result-type of \"" & synchResultType & "\"!")
 
     var collectionSize = connection.socket.unpackInt
-    var collection: OrientRecords = newSeq[OrientRecord](collectionSize)
+    result = newSeq[OrientRecord](collectionSize)
 
     collectionSize -= 1
 
     for i in countUp(0, collectionSize):
-        collection[i] = connection.socket.unpackRecord
-
-    return collection
+        result[i] = connection.socket.unpackRecord
 
 proc send(connection: var OrientConnection, data: OrientSQLQuery): int =
     # Length of command-specific data
