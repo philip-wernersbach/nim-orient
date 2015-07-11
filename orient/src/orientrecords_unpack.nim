@@ -20,7 +20,7 @@ proc unpack*(record: var OrientRecord): OrientUnpackedRecords =
     let classNameLength = int(record.recordContent.unpackVarInt)
     let className = record.recordContent.unpackString(classNameLength)
 
-    var unpacked: OrientUnpackedRecords = (version: version, className: className, fields: initTable[OrientString, OrientVariant]())
+    result = (version: version, className: className, fields: initTable[OrientString, OrientVariant]())
 
     while true:
         let fieldNameLength = int(record.recordContent.unpackVarInt)
@@ -114,9 +114,7 @@ proc unpack*(record: var OrientRecord): OrientUnpackedRecords =
         finally:
             record.recordContent.cursor = oldCursor
 
-        unpacked.fields[fieldName] = unpackedField
-
-    return unpacked
+        result.fields[fieldName] = unpackedField
 
 iterator unpackEach*(records: var OrientRecords): OrientUnpackedRecords =
     for record in records:
