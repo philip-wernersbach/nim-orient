@@ -6,7 +6,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import net
-import macros
 
 import orienttypes
 import orientpackets_unpack
@@ -72,16 +71,14 @@ proc recvVerifyHeader(connection: var OrientConnection) =
         if token.len != 0:
             connection.token = token
 
-macro recvResponseCommandVerifyHeaderAndReturnCollectionSize(): stmt =
-    parseStmt("""
-connection.recvVerifyHeader
+template recvResponseCommandVerifyHeaderAndReturnCollectionSize() =
+    connection.recvVerifyHeader
 
-let synchResultType = cast[cchar](connection.socket.unpackByte)
-if synchResultType != 'l':
-    raise newException(OrientDBFeatureUnsupportedInLibrary, "This library does not support synch-result-type of \"" & synchResultType & "\"!")
+    let synchResultType = cast[cchar](connection.socket.unpackByte)
+    if synchResultType != 'l':
+        raise newException(OrientDBFeatureUnsupportedInLibrary, "This library does not support synch-result-type of \"" & synchResultType & "\"!")
 
-var collectionSize = connection.socket.unpackInt
-""")
+    var collectionSize {.inject.} = connection.socket.unpackInt
 
 proc recvResponseCommand(connection: var OrientConnection): OrientRecords =
     recvResponseCommandVerifyHeaderAndReturnCollectionSize()
