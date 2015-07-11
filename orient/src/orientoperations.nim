@@ -101,6 +101,14 @@ proc recvResponseCommand(connection: var OrientConnection, onRecord: proc(record
         var record = connection.socket.unpackRecord
         onRecord(record)
 
+iterator recvResponseCommand(connection: var OrientConnection): OrientRecord =
+    recvResponseCommandVerifyHeaderAndReturnCollectionSize()
+
+    collectionSize -= 1
+
+    for i in countUp(0, collectionSize):
+        yield connection.socket.unpackRecord
+
 proc send(connection: var OrientConnection, data: OrientSQLQuery): int =
     # Length of command-specific data
     let commandLength = sizeof(OrientInt) + sizeof(OrientByte) * data.requestCommand.className.len + sizeof(OrientInt) + sizeof(OrientByte) * data.text.len + sizeof(OrientInt) + sizeof(OrientInt) + sizeof(OrientByte) * data.fetchPlan.len
@@ -142,6 +150,12 @@ proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, no
 proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt, fetchPlan: OrientString not nil, onRecord: proc(record: var OrientRecord)) =
     discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
     connection.recvResponseCommand(onRecord)
+
+iterator sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt, fetchPlan: OrientString not nil) =
+    discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
+
+    for record in connection.recvResponseCommand:
+        yield record
 
 proc newOrientDatabase*(databaseName: OrientString not nil, databaseType: OrientString not nil, userName: OrientString not nil, userPassword: OrientString not nil): OrientDatabase {.noSideEffect.} =
     return (databaseName: databaseName, databaseType: databaseType, userName: userName, userPassword: userPassword)

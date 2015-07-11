@@ -20,7 +20,8 @@ try:
     stdout.writeln("Getting all verticies in database.")
     stdout.writeln("Contents of all returned records:")
 
-    connection.sqlQuery("select from V", -1, "*:-1", proc(packedRecord: var OrientRecord) =
+    for item in connection.sqlQuery("select from V", -1, "*:-1"):
+        var packedRecord = item
         let record = packedRecord.unpack()
 
         stdout.writeln("-----------------")
@@ -43,7 +44,6 @@ try:
             of OrientType.PackedTreeRIDBag: stdout.writeln(record.fields[name].dataPackedTreeRIDBag)
 
         stdout.writeln("-----------------")
-    )
 
     stdout.writeln("")
 
