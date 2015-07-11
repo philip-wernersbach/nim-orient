@@ -23,8 +23,8 @@ type
         driverName:        OrientString not nil
         driverVersion:     OrientString not nil
         protocolVersion:   OrientShort
-        clientID:          OrientString
-        serializationImpl: OrientString
+        clientID:          OrientString not nil
+        serializationImpl: OrientString not nil
         tokenSession:      OrientBoolean
         database:          OrientDatabase
 
@@ -46,19 +46,11 @@ type
 
 
 proc send(socket: Socket, data: OrientRequestDBOpen): int =
-    var length = sizeof(OrientByte) + sizeof(OrientInt) + sizeof(OrientInt) * 8 + sizeof(OrientShort) + sizeof(OrientBoolean) + data.driverName.len + data.driverVersion.len + data.database.databaseName.len + data.database.databaseType.len + data.database.userName.len + data.database.userPassword.len
     var dataBytes: OrientPacket
 
-    if data.clientID != nil:
-        length += data.clientID.len
+    dataBytes.packAll(OrientByte(3), OrientInt(-1), data.driverName, data.driverVersion, data.protocolVersion, data.clientID, data.serializationImpl, data.tokenSession, data.database.databaseName, data.database.databaseType, data.database.userName, data.database.userPassword)
 
-    if data.serializationImpl != nil:
-        length += data.serializationImpl.len
-
-    dataBytes = newOrientPacket(length)
-    discard dataBytes.pack(cast[OrientByte](3)).pack(cast[OrientInt](-1)).pack(data.driverName).pack(data.driverVersion).pack(data.protocolVersion).pack(data.clientID).pack(data.serializationImpl).pack(data.tokenSession).pack(data.database.databaseName).pack(data.database.databaseType).pack(data.database.userName).pack(data.database.userPassword)
-
-    return socket.send(addr(dataBytes.data[0]), length)
+    return socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
 
 proc recvVerifyHeader(connection: var OrientConnection) =
     if connection.socket.unpackBoolean == false:
@@ -107,32 +99,19 @@ iterator recvResponseCommand(connection: var OrientConnection): OrientRecord =
         yield connection.socket.unpackRecord
 
 proc send(connection: var OrientConnection, data: OrientSQLQuery): int =
+    var dataBytes: OrientPacket
+
     # Length of command-specific data
-    let commandLength = sizeof(OrientInt) + sizeof(OrientByte) * data.requestCommand.className.len + sizeof(OrientInt) + sizeof(OrientByte) * data.text.len + sizeof(OrientInt) + sizeof(OrientInt) + sizeof(OrientByte) * data.fetchPlan.len
+    var commandLength = sizeof(OrientInt) + sizeof(OrientByte) * data.requestCommand.className.len + sizeof(OrientInt) + sizeof(OrientByte) * data.text.len + sizeof(OrientInt) + sizeof(OrientInt) + sizeof(OrientByte) * data.fetchPlan.len
 
-    # Length of request header plus command-specific data
-    var length = sizeof(OrientByte) + sizeof(OrientInt) + sizeof(OrientByte) + sizeof(OrientInt) + commandLength
-
-    # Make room for the optional token, if needed.
     if connection.token.len > 0:
-        length += sizeof(OrientInt) + sizeof(OrientByte) * connection.token.len
-
-    # Allocate our packet.
-    var dataBytes = newOrientPacket(length)
-
-    # Pack the request header.
-    discard dataBytes.pack(cast[OrientByte](41)).pack(connection.sessionID)
-
-    # Pack the optional token, if needed.
-    if connection.token.len > 0:
-        discard dataBytes.pack(connection.token)
-
-    # Pack the command-specific data.
-    discard dataBytes.pack(data.requestCommand.mode).pack(cast[OrientInt](commandLength)).pack(data.requestCommand.className)
-    discard dataBytes.pack(data.text).pack(data.nonTextLimit).pack(data.fetchPlan)
+        commandLength += sizeof(OrientInt) + sizeof(OrientByte) * connection.token.len
+        dataBytes.packAll(OrientByte(41), connection.sessionID, connection.token, data.requestCommand.mode, OrientInt(commandLength), data.requestCommand.className, data.text, data.nonTextLimit, data.fetchPlan)
+    else:
+        dataBytes.packAll(OrientByte(41), connection.sessionID, data.requestCommand.mode, OrientInt(commandLength), data.requestCommand.className, data.text, data.nonTextLimit, data.fetchPlan)
 
     # Send it off!
-    return connection.socket.send(addr(dataBytes.data[0]), length)
+    return connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
 
 proc newOrientRequestCommand(mode: OrientByte, className: OrientString not nil): OrientRequestCommand =
     return (mode: mode, className: className)
@@ -160,7 +139,7 @@ proc newOrientDatabase*(databaseName: OrientString not nil, databaseType: Orient
 proc newOrientConnection*(database: OrientDatabase, tokenSession: OrientBoolean, socket: Socket not nil): OrientConnection =
     var length: int = sizeof(OrientShort) + sizeof(OrientByte) + sizeof(OrientInt) * 3
     var responseDBOpen = newOrientPacket(length)
-    let requestDBOpen: OrientRequestDBOpen = (driverName: cast[OrientString not nil]("OrientDB Nimrod Driver"), driverVersion: cast[OrientString not nil]("1.0.0"), protocolVersion: cast[OrientShort](28), clientID: nil, serializationImpl: "ORecordSerializerBinary", tokenSession: tokenSession, database: database)
+    let requestDBOpen: OrientRequestDBOpen = (driverName: cast[OrientString not nil]("OrientDB Nimrod Driver"), driverVersion: cast[OrientString not nil]("1.0.0"), protocolVersion: cast[OrientShort](28), clientID: cast[OrientString not nil](""), serializationImpl: cast[OrientString not nil]("ORecordSerializerBinary"), tokenSession: tokenSession, database: database)
 
     discard socket.send(requestDBOpen)
     discard socket.recv(responseDBOpen.buffer, length)
@@ -200,17 +179,11 @@ proc newOrientConnection*(database: OrientDatabase, address: OrientString, token
     return newOrientConnection(database, tokenSession, socket)
 
 proc close*(connection: var OrientConnection) =
-    let commandLength = 0
-    var length = sizeof(OrientByte) + sizeof(OrientInt) + sizeof(OrientByte) + sizeof(OrientInt) + commandLength
+    var dataBytes: OrientPacket
 
     if connection.token.len > 0:
-        length += sizeof(OrientInt) + sizeof(OrientByte) * connection.token.len
+        dataBytes.packAll(OrientByte(5), connection.sessionID, connection.token)
+    else:
+        dataBytes.packAll(OrientByte(5), connection.sessionID)
 
-    var dataBytes = newOrientPacket(length)
-
-    discard dataBytes.pack(cast[OrientByte](5)).pack(connection.sessionID)
-
-    if connection.token.len > 0:
-        discard dataBytes.pack(connection.token)
-
-    discard connection.socket.send(addr(dataBytes.data[0]), length)
+    discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
