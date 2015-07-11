@@ -18,11 +18,11 @@ var connection = database.newOrientConnection("localhost", false, Port(2424))
 
 try:
     stdout.writeln("Getting all verticies in database.")
-    var results = connection.sqlQuery("select from V", -1, "*:-1")
-    stdout.writeln("Database returned " & results.len.intToStr(1) & " records.")
-
     stdout.writeln("Contents of all returned records:")
-    for record in results.unpackEach():
+
+    connection.sqlQuery("select from V", -1, "*:-1", proc(packedRecord: var OrientRecord) =
+        let record = packedRecord.unpack()
+
         stdout.writeln("-----------------")
         stdout.write(record.className)
         stdout.writeln(":")
@@ -43,6 +43,7 @@ try:
             of OrientType.PackedTreeRIDBag: stdout.writeln(record.fields[name].dataPackedTreeRIDBag)
 
         stdout.writeln("-----------------")
+    )
 
     stdout.writeln("")
 

@@ -6,6 +6,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import net
+import macros
 
 import orienttypes
 import orientpackets_unpack
@@ -71,20 +72,34 @@ proc recvVerifyHeader(connection: var OrientConnection) =
         if token.len != 0:
             connection.token = token
 
+macro recvResponseCommandVerifyHeaderAndReturnCollectionSize(): stmt =
+    parseStmt("""
+connection.recvVerifyHeader
+
+let synchResultType = cast[cchar](connection.socket.unpackByte)
+if synchResultType != 'l':
+    raise newException(OrientDBFeatureUnsupportedInLibrary, "This library does not support synch-result-type of \"" & synchResultType & "\"!")
+
+var collectionSize = connection.socket.unpackInt
+""")
+
 proc recvResponseCommand(connection: var OrientConnection): OrientRecords =
-    connection.recvVerifyHeader
-
-    let synchResultType = cast[cchar](connection.socket.unpackByte)
-    if synchResultType != 'l':
-        raise newException(OrientDBFeatureUnsupportedInLibrary, "This library does not support synch-result-type of \"" & synchResultType & "\"!")
-
-    var collectionSize = connection.socket.unpackInt
+    recvResponseCommandVerifyHeaderAndReturnCollectionSize()
     result = newSeq[OrientRecord](collectionSize)
 
     collectionSize -= 1
 
     for i in countUp(0, collectionSize):
         result[i] = connection.socket.unpackRecord
+
+proc recvResponseCommand(connection: var OrientConnection, onRecord: proc(record: var OrientRecord)) =
+    recvResponseCommandVerifyHeaderAndReturnCollectionSize()
+
+    collectionSize -= 1
+
+    for i in countUp(0, collectionSize):
+        var record = connection.socket.unpackRecord
+        onRecord(record)
 
 proc send(connection: var OrientConnection, data: OrientSQLQuery): int =
     # Length of command-specific data
@@ -123,6 +138,10 @@ proc newOrientSQLQuery(text: OrientString not nil, nonTextLimit: OrientInt, fetc
 proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt, fetchPlan: OrientString not nil): OrientRecords =
     discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
     return connection.recvResponseCommand
+
+proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt, fetchPlan: OrientString not nil, onRecord: proc(record: var OrientRecord)) =
+    discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
+    connection.recvResponseCommand(onRecord)
 
 proc newOrientDatabase*(databaseName: OrientString not nil, databaseType: OrientString not nil, userName: OrientString not nil, userPassword: OrientString not nil): OrientDatabase {.noSideEffect.} =
     return (databaseName: databaseName, databaseType: databaseType, userName: userName, userPassword: userPassword)
