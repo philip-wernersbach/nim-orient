@@ -50,7 +50,7 @@ proc send(socket: Socket, data: OrientRequestDBOpen): int =
 
     dataBytes.packAll(OrientByte(3), OrientInt(-1), data.driverName, data.driverVersion, data.protocolVersion, data.clientID, data.serializationImpl, data.tokenSession, data.database.databaseName, data.database.databaseType, data.database.userName, data.database.userPassword)
 
-    return socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+    result = socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
 
 proc recvVerifyHeader(connection: var OrientConnection) =
     if connection.socket.unpackBoolean == false:
@@ -111,17 +111,17 @@ proc send(connection: var OrientConnection, data: OrientSQLQuery): int =
         dataBytes.packAll(OrientByte(41), connection.sessionID, data.requestCommand.mode, OrientInt(commandLength), data.requestCommand.className, data.text, data.nonTextLimit, data.fetchPlan)
 
     # Send it off!
-    return connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+    result = connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
 
 proc newOrientRequestCommand(mode: OrientByte, className: OrientString not nil): OrientRequestCommand =
-    return (mode: mode, className: className)
+    result = (mode: mode, className: className)
 
 proc newOrientSQLQuery(text: OrientString not nil, nonTextLimit: OrientInt, fetchPlan: OrientString not nil, requestCommand: OrientRequestCommand): OrientSQLQuery =
-    return (text: text, nonTextLimit: nonTextLimit, fetchPlan: fetchPlan, requestCommand: requestCommand)
+    result = (text: text, nonTextLimit: nonTextLimit, fetchPlan: fetchPlan, requestCommand: requestCommand)
 
 proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt = -1, fetchPlan: OrientString not nil = "*:0"): OrientRecords =
     discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
-    return connection.recvResponseCommand
+    result = connection.recvResponseCommand
 
 proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, onRecord: proc(record: var OrientRecord), nonTextLimit: OrientInt = -1, fetchPlan: OrientString not nil = "*:0") =
     discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
@@ -134,7 +134,7 @@ iterator sqlQuery*(connection: var OrientConnection, query: OrientString not nil
         yield record
 
 proc newOrientDatabase*(databaseName: OrientString not nil, databaseType: OrientString not nil, userName: OrientString not nil, userPassword: OrientString not nil): OrientDatabase {.noSideEffect.} =
-    return (databaseName: databaseName, databaseType: databaseType, userName: userName, userPassword: userPassword)
+    result = (databaseName: databaseName, databaseType: databaseType, userName: userName, userPassword: userPassword)
 
 proc newOrientConnection*(database: OrientDatabase, tokenSession: OrientBoolean, socket: Socket not nil): OrientConnection =
     var length: int = sizeof(OrientShort) + sizeof(OrientByte) + sizeof(OrientInt) * 3
@@ -170,13 +170,13 @@ proc newOrientConnection*(database: OrientDatabase, tokenSession: OrientBoolean,
     # The OrientDB Release is useless, discard it.
     discard socket.unpackString
 
-    return (socket: socket, sessionID: sessionID, token: token, clusters: clusters)
+    result = (socket: socket, sessionID: sessionID, token: token, clusters: clusters)
 
 proc newOrientConnection*(database: OrientDatabase, address: OrientString, tokenSession: bool, port: Port): OrientConnection =
     let socket = cast[Socket not nil](newSocket())
     socket.connect(address, port)
 
-    return newOrientConnection(database, tokenSession, socket)
+    result = newOrientConnection(database, tokenSession, socket)
 
 proc close*(connection: var OrientConnection) =
     var dataBytes: OrientPacket

@@ -118,7 +118,7 @@ proc unpackVarInt*(buffer: var OrientPacket): OrientVarInt =
 
     case length
     of 0:
-        return 0
+        result = 0
     of 1:
         unpackVarIntLogic(1)
     of 2:
