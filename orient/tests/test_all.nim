@@ -25,7 +25,7 @@ try:
         let record = packedRecord.unpack()
 
         stdout.writeln("-----------------")
-        stdout.write(record.className)
+        stdout.write(item.recordClassName)
         stdout.writeln(":")
 
         for name in record.fields.keys:

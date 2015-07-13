@@ -80,6 +80,13 @@ proc unpackRecord*(socket: Socket): OrientRecord =
     let clusterID = socket.unpackShort
     let clusterPosition = socket.unpackLong
     let recordVersion = socket.unpackInt
-    let recordContent = socket.unpackBytes
 
-    result = newOrientRecord(recordType, clusterID, clusterPosition, recordVersion, recordContent)
+    if recordType != OrientByte('d'):
+        raise newException(OrientDBFeatureUnsupportedInLibrary, "This library does not support record-types other than \"d\"!")
+
+    var recordContent = newOrientPacket(socket.unpackBytes)
+
+    let recordSerializationVersion = recordContent.unpackByte
+    let recordClassName = recordContent.unpackString(int(recordContent.unpackVarInt))
+
+    result = newOrientRecord(recordType, clusterID, clusterPosition, recordVersion, recordSerializationVersion, recordClassName, recordContent)

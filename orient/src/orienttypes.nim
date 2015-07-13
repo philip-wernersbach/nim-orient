@@ -57,11 +57,13 @@ type
         PackedTreeRIDBag = 255
 
     OrientRecord*   = tuple
-        recordType:      OrientChar
-        clusterID:       OrientShort
-        clusterPosition: OrientLong
-        recordVersion:   OrientInt
-        recordContent:   OrientPacket
+        recordType:                 OrientChar
+        clusterID:                  OrientShort
+        clusterPosition:            OrientLong
+        recordVersion:              OrientInt
+        recordSerializationVersion: OrientByte
+        recordClassName:            OrientString
+        recordContent:              OrientPacket
     OrientRecords*  = seq[OrientRecord]
 
     OrientVariantObj* = object of RootObj
@@ -81,8 +83,6 @@ type
 
     OrientUnpackedFields*  = Table[OrientString, OrientVariant]
     OrientUnpackedRecords* = tuple
-        version:   OrientByte
-        className: OrientString
         fields:    OrientUnpackedFields
 
     OrientClusters* = Table[OrientString, OrientShort]
@@ -113,5 +113,8 @@ proc newOrientPacket*(length: int): OrientPacket {.noSideEffect.} =
 proc newOrientPacket*(data: OrientBytes): OrientPacket {.noSideEffect.} =
     return (data: data, cursor: 0)
 
-proc newOrientRecord*(recordType: OrientByte, clusterID: OrientShort, clusterPosition: OrientLong, recordVersion: OrientInt, recordContent: OrientBytes): OrientRecord {.noSideEffect.} =
-    return (recordType: cast[cchar](recordType), clusterID: clusterID, clusterPosition: clusterPosition, recordVersion: recordVersion, recordContent: newOrientPacket(recordContent))
+proc newOrientRecord*(recordType: OrientByte, clusterID: OrientShort, clusterPosition: OrientLong, recordVersion: OrientInt, recordSerializationVersion: OrientByte, recordClassName: OrientString, recordContent: OrientPacket): OrientRecord {.noSideEffect.} =
+    return (recordType: OrientChar(recordType), clusterID: clusterID, clusterPosition: clusterPosition, recordVersion: recordVersion, recordSerializationVersion: recordSerializationVersion, recordClassName: recordClassName, recordContent: recordContent)
+
+proc newOrientRecord*(recordType: OrientByte, clusterID: OrientShort, clusterPosition: OrientLong, recordVersion: OrientInt, recordSerializationVersion: OrientByte, recordClassName: OrientString, recordContent: OrientBytes): OrientRecord {.noSideEffect.} =
+    return newOrientRecord(recordType, clusterID, clusterPosition, recordVersion, recordSerializationVersion, recordClassName, newOrientPacket(recordContent))

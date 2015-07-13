@@ -13,14 +13,7 @@ import orienttypes
 import orientpackets_unpack
 
 proc unpack*(record: var OrientRecord): OrientUnpackedRecords =
-    if record.recordType != 'd':
-        raise newException(OrientDBFeatureUnsupportedInLibrary, "This library does not support record-types other than \"d\"!")
-
-    let version = record.recordContent.unpackByte
-    let classNameLength = int(record.recordContent.unpackVarInt)
-    let className = record.recordContent.unpackString(classNameLength)
-
-    result = (version: version, className: className, fields: initTable[OrientString, OrientVariant]())
+    result = (fields: initTable[OrientString, OrientVariant]())
 
     while true:
         let fieldNameLength = int(record.recordContent.unpackVarInt)
