@@ -99,7 +99,7 @@ type
     OrientServerBug* = object of Exception
 
 proc buffer*(packet: var OrientPacket): pointer {.noSideEffect.} =
-    return addr(packet.data[packet.cursor])
+    result = addr(packet.data[packet.cursor])
 
 proc `+=`*(buffer: var OrientPacket, y: int) {.noSideEffect.} =
     buffer.cursor += y
@@ -108,13 +108,13 @@ proc reset*(buffer: var OrientPacket) {.noSideEffect.} =
     buffer.cursor = 0
 
 proc newOrientPacket*(length: int): OrientPacket {.noSideEffect.} =
-    return (data: newSeq[uint8](length), cursor: 0)
+    result = (data: newSeq[uint8](length), cursor: 0)
 
 proc newOrientPacket*(data: OrientBytes): OrientPacket {.noSideEffect.} =
-    return (data: data, cursor: 0)
+    result = (data: data, cursor: 0)
 
 proc newOrientRecord*(recordType: OrientByte, clusterID: OrientShort, clusterPosition: OrientLong, recordVersion: OrientInt, recordSerializationVersion: OrientByte, recordClassName: OrientString, recordContent: OrientPacket): OrientRecord {.noSideEffect.} =
-    return (recordType: OrientChar(recordType), clusterID: clusterID, clusterPosition: clusterPosition, recordVersion: recordVersion, recordSerializationVersion: recordSerializationVersion, recordClassName: recordClassName, recordContent: recordContent)
+    result = (recordType: OrientChar(recordType), clusterID: clusterID, clusterPosition: clusterPosition, recordVersion: recordVersion, recordSerializationVersion: recordSerializationVersion, recordClassName: recordClassName, recordContent: recordContent)
 
 proc newOrientRecord*(recordType: OrientByte, clusterID: OrientShort, clusterPosition: OrientLong, recordVersion: OrientInt, recordSerializationVersion: OrientByte, recordClassName: OrientString, recordContent: OrientBytes): OrientRecord {.noSideEffect.} =
-    return newOrientRecord(recordType, clusterID, clusterPosition, recordVersion, recordSerializationVersion, recordClassName, newOrientPacket(recordContent))
+    result = newOrientRecord(recordType, clusterID, clusterPosition, recordVersion, recordSerializationVersion, recordClassName, newOrientPacket(recordContent))
