@@ -20,7 +20,7 @@ try:
     stdout.writeln("Getting all verticies in database.")
     stdout.writeln("Contents of all returned records:")
 
-    for item in connection.sqlQuery("select from V", -1, "*:-1"):
+    for item in connection.sqlQuery("select from V"):
         var packedRecord = item
         let record = packedRecord.unpack()
 

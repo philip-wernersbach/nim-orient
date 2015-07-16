@@ -119,15 +119,15 @@ proc newOrientRequestCommand(mode: OrientByte, className: OrientString not nil):
 proc newOrientSQLQuery(text: OrientString not nil, nonTextLimit: OrientInt, fetchPlan: OrientString not nil, requestCommand: OrientRequestCommand): OrientSQLQuery =
     return (text: text, nonTextLimit: nonTextLimit, fetchPlan: fetchPlan, requestCommand: requestCommand)
 
-proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt, fetchPlan: OrientString not nil): OrientRecords =
+proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt = -1, fetchPlan: OrientString not nil = "*:0"): OrientRecords =
     discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
     return connection.recvResponseCommand
 
-proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt, fetchPlan: OrientString not nil, onRecord: proc(record: var OrientRecord)) =
+proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, onRecord: proc(record: var OrientRecord), nonTextLimit: OrientInt = -1, fetchPlan: OrientString not nil = "*:0") =
     discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
     connection.recvResponseCommand(onRecord)
 
-iterator sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt, fetchPlan: OrientString not nil) =
+iterator sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt = -1, fetchPlan: OrientString not nil = "*:0") =
     discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
 
     for record in connection.recvResponseCommand:
