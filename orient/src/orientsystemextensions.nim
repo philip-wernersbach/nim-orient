@@ -18,3 +18,6 @@ proc ntohll*(x: int64): int64 =
                  (x shl 24 and 0xff0000000000)   or
                  (x shl 40 and 0xff000000000000) or
                  (x shl 56)
+
+proc htonll*(x: int64): int64 =
+  result = x.ntohll

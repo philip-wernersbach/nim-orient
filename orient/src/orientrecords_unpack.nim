@@ -56,6 +56,9 @@ proc unpack*(record: var OrientRecord): OrientUnpackedRecords =
 
                 let size = record.recordContent.unpackVarInt
                 unpackedField.dataBinary = record.recordContent.unpackBytes(int(size))
+            of OrientType.Link:
+                unpackedField.typ = OrientType.Link
+                unpackedField.dataLink = record.recordContent.unpackLink
             of OrientType.Byte:
                 unpackedField.typ = OrientType.Byte
                 unpackedField.dataByte = record.recordContent.unpackByte
@@ -78,12 +81,9 @@ proc unpack*(record: var OrientRecord): OrientUnpackedRecords =
 
                     unpackedField.dataLinks = bag
                 else:
-                    let treePointerLength = sizeof(OrientLong) + sizeof(OrientLong) + sizeof(OrientInt)
-                    let singleChangeLength = 10 + sizeof(OrientByte) + sizeof(OrientInt)
-
                     unpackedField.typ = OrientType.PackedTreeRIDBag
 
-                    let treePointer = record.recordContent.unpackBytes(treePointerLength)
+                    let treePointer = record.recordContent.unpackBytes(TREE_POINTER_LENGTH)
 
                     # No idea why they even bother to include the size field for tree-based RID Bags, its unused.
                     discard record.recordContent.unpackInt
@@ -94,13 +94,15 @@ proc unpack*(record: var OrientRecord): OrientUnpackedRecords =
                     let changesSize = record.recordContent.unpackInt
 
                     record.recordContent.cursor = fullChangesCursor
-                    let changes = record.recordContent.unpackBytes(sizeof(OrientInt) + (changesSize * singleChangeLength))
+                    let changes = record.recordContent.unpackBytes(sizeof(OrientInt) + (changesSize * SINGLE_CHANGE_LENGTH))
 
                     unpackedField.dataPackedTreeRIDBag.treePointer = treePointer
                     unpackedField.dataPackedTreeRIDBag.changes = changes
             of OrientType.PackedTreeRIDBag:
                 # Not possible, internal type but not a network type
                 raise newException(OrientServerBug, "Internal type number \"" & int(dataType).intToStr(1) & "\" used as network type!")
+            else:
+                raise newException(RangeError, "value out of range: " & $dataType)
 
         except RangeError:
             raise newException(OrientDBFeatureUnsupportedInLibrary, "This library does not support data_types of \"" & int(dataType).intToStr(1) & "\"!")

@@ -51,8 +51,11 @@ proc unpackBytes*(buffer: var OrientPacket, length: int): OrientBytes not nil =
     else:
         result = cast[OrientBytes not nil](OrientBytes(newSeq[OrientByte](0)))
 
-proc unpackString*(buffer: var OrientPacket, length: int): OrientString =
-    result = newString(length)
+template unpackLink*(buffer: var OrientPacket): OrientLink not nil =
+    buffer.unpackBytes(sizeof(OrientLong) * 2)
+
+proc unpackString*(buffer: var OrientPacket, length: int): OrientString not nil =
+    result = cast[OrientString not nil](newString(length))
     copyMem(addr(result[0]), buffer.buffer, length)
 
     buffer += length
@@ -118,7 +121,7 @@ proc unpackVarInt*(buffer: var OrientPacket): OrientVarInt =
 
     case length
     of 0:
-        result = 0
+        result = OrientVarInt(0)
     of 1:
         unpackVarIntLogic(1)
     of 2:

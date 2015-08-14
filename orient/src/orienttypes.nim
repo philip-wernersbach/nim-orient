@@ -42,7 +42,7 @@ type
         #EmbList      = 10
         #EmbdSet      = 11
         #EmbeMap      = 12
-        #Link         = 13
+        Link         = 13
         #LinkList     = 14
         #LinkSet      = 15
         #LinkMap      = 16
@@ -62,7 +62,7 @@ type
         clusterPosition:            OrientLong
         recordVersion:              OrientInt
         recordSerializationVersion: OrientByte
-        recordClassName:            OrientString
+        recordClassName:            OrientString not nil
         recordContent:              OrientPacket
     OrientRecords*  = seq[OrientRecord]
 
@@ -72,8 +72,9 @@ type
         of OrientType.Int:              dataInt*:              OrientInt
         of OrientType.Short:            dataShort*:            OrientShort
         of OrientType.Long:             dataLong*:             OrientLong
-        of OrientType.String:           dataString*:           OrientString
-        of OrientType.Binary:           dataBinary*:           OrientBytes
+        of OrientType.String:           dataString*:           OrientString not nil
+        of OrientType.Binary:           dataBinary*:           OrientBytes not nil
+        of OrientType.Link:             dataLink*:             OrientLink not nil
         of OrientType.Byte:             dataByte*:             OrientByte
         of OrientType.LinkBag:          dataLinks*:            OrientLinks
         of OrientType.PackedTreeRIDBag: dataPackedTreeRIDBag*: OrientPackedTreeRIDBag
@@ -98,6 +99,9 @@ type
     OrientDBFeatureUnsupportedInLibrary* = object of Exception
     OrientServerBug* = object of Exception
 
+const TREE_POINTER_LENGTH* = sizeof(OrientLong) + sizeof(OrientLong) + sizeof(OrientInt)
+const SINGLE_CHANGE_LENGTH* = 10 + sizeof(OrientByte) + sizeof(OrientInt)
+
 proc buffer*(packet: var OrientPacket): pointer {.noSideEffect.} =
     result = addr(packet.data[packet.cursor])
 
@@ -113,8 +117,8 @@ proc newOrientPacket*(length: int): OrientPacket {.noSideEffect.} =
 proc newOrientPacket*(data: OrientBytes): OrientPacket {.noSideEffect.} =
     result = (data: data, cursor: 0)
 
-proc newOrientRecord*(recordType: OrientByte, clusterID: OrientShort, clusterPosition: OrientLong, recordVersion: OrientInt, recordSerializationVersion: OrientByte, recordClassName: OrientString, recordContent: OrientPacket): OrientRecord {.noSideEffect.} =
+proc newOrientRecord*(recordType: OrientByte, clusterID: OrientShort, clusterPosition: OrientLong, recordVersion: OrientInt, recordSerializationVersion: OrientByte, recordClassName: OrientString not nil, recordContent: OrientPacket): OrientRecord {.noSideEffect.} =
     result = (recordType: OrientChar(recordType), clusterID: clusterID, clusterPosition: clusterPosition, recordVersion: recordVersion, recordSerializationVersion: recordSerializationVersion, recordClassName: recordClassName, recordContent: recordContent)
 
-proc newOrientRecord*(recordType: OrientByte, clusterID: OrientShort, clusterPosition: OrientLong, recordVersion: OrientInt, recordSerializationVersion: OrientByte, recordClassName: OrientString, recordContent: OrientBytes): OrientRecord {.noSideEffect.} =
+proc newOrientRecord*(recordType: OrientByte, clusterID: OrientShort, clusterPosition: OrientLong, recordVersion: OrientInt, recordSerializationVersion: OrientByte, recordClassName: OrientString not nil, recordContent: OrientBytes): OrientRecord {.noSideEffect.} =
     result = newOrientRecord(recordType, clusterID, clusterPosition, recordVersion, recordSerializationVersion, recordClassName, newOrientPacket(recordContent))

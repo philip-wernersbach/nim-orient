@@ -38,10 +38,11 @@ try:
             of OrientType.Short:            stdout.writeln(record.fields[name].dataShort)
             of OrientType.Long:             stdout.writeln(record.fields[name].dataLong)
             of OrientType.String:           stdout.writeln(record.fields[name].dataString)
-            of OrientType.Binary:           stdout.writeln(record.fields[name].dataBinary)
+            of OrientType.Binary:           stdout.writeln($(record.fields[name].dataBinary))
+            of OrientType.Link:             stdout.writeln($(record.fields[name].dataLink))
             of OrientType.Byte:             stdout.writeln(record.fields[name].dataByte)
-            of OrientType.LinkBag:          stdout.writeln(record.fields[name].dataLinks)
-            of OrientType.PackedTreeRIDBag: stdout.writeln(record.fields[name].dataPackedTreeRIDBag)
+            of OrientType.LinkBag:          stdout.writeln($(record.fields[name].dataLinks))
+            of OrientType.PackedTreeRIDBag: stdout.writeln($(record.fields[name].dataPackedTreeRIDBag))
 
         stdout.writeln("-----------------")
 

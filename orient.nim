@@ -8,8 +8,10 @@
 # Helper file for files that normally need to be included for this to be useful.
 import orient/src/orientoperations
 import orient/src/orientrecords_unpack
+import orient/src/orientrecords_pack
 import orient/src/orienttypes
 
 export orientoperations
 export orientrecords_unpack
+export orientrecords_pack
 export orienttypes

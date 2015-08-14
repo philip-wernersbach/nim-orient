@@ -50,10 +50,10 @@ proc unpackBytes*(socket: Socket, length: int): OrientBytes not nil =
 proc unpackBytes*(socket: Socket): OrientBytes not nil =
     result = socket.unpackBytes(socket.unpackInt)
 
-proc unpackString*(socket: Socket): OrientString =
+proc unpackString*(socket: Socket): OrientString not nil =
     let stringWireLength = sizeof(cchar) * socket.unpackInt
 
-    result = newString(stringWireLength)
+    result = cast[OrientString not nil](newString(stringWireLength))
     discard socket.recv(addr(result[0]), stringWireLength)
 
 proc unpackClusters*(socket: Socket): OrientClusters =

@@ -54,7 +54,7 @@ proc send(socket: Socket, data: OrientRequestDBOpen): int =
 
 proc recvVerifyHeader(connection: var OrientConnection) =
     if connection.socket.unpackBoolean == false:
-        raise newException(OrientCommandFailed, "REQUEST_COMMAND failed!")
+        raise newException(OrientCommandFailed, "REQUEST failed!")
     elif connection.socket.unpackInt != connection.sessionID:
         raise newException(OrientServerBug, "The session ID returned by the server does not match the connection's session ID!")
 
@@ -98,6 +98,14 @@ iterator recvResponseCommand(connection: var OrientConnection): OrientRecord =
     for i in countUp(0, collectionSize):
         yield connection.socket.unpackRecord
 
+proc recvResponseRecordUpdate(connection: var OrientConnection, record: var OrientRecord) =
+    connection.recvVerifyHeader
+
+    record.recordVersion = connection.socket.unpackInt
+
+    if connection.socket.unpackInt != 0:
+        raise newException(OrientDBFeatureUnsupportedInLibrary, "This library does not support collection changes for RidBag management on record update!")
+
 proc send(connection: var OrientConnection, data: OrientSQLQuery): int =
     var dataBytes: OrientPacket
 
@@ -119,19 +127,69 @@ proc newOrientRequestCommand(mode: OrientByte, className: OrientString not nil):
 proc newOrientSQLQuery(text: OrientString not nil, nonTextLimit: OrientInt, fetchPlan: OrientString not nil, requestCommand: OrientRequestCommand): OrientSQLQuery =
     result = (text: text, nonTextLimit: nonTextLimit, fetchPlan: fetchPlan, requestCommand: requestCommand)
 
+proc recordUpdate*(connection: var OrientConnection, record: var OrientRecord) =
+    var dataBytes: OrientPacket
+
+    if connection.token.len > 0:
+        dataBytes.packAll(OrientByte(32), connection.sessionID, connection.token, record.clusterID)
+        discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+
+        dataBytes = newOrientPacket(sizeof(OrientLong))
+        dataBytes.packLong(record.clusterPosition)
+        discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+
+        dataBytes.packAll(OrientBoolean(true))
+        discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+
+        dataBytes = newOrientPacket(sizeof(OrientInt) + record.recordContent.cursor)
+        dataBytes.pack(record.recordContent)
+        discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+
+        dataBytes.packAll(record.recordVersion, OrientByte('d'), OrientByte(0))
+        discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+    else:
+        dataBytes.packAll(OrientByte(32), connection.sessionID, record.clusterID)
+        discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+
+        dataBytes = newOrientPacket(sizeof(OrientLong))
+        dataBytes.packLong(record.clusterPosition)
+        discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+
+        dataBytes.packAll(OrientBoolean(true))
+        discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+
+        dataBytes = newOrientPacket(sizeof(OrientInt) + record.recordContent.cursor)
+        dataBytes.pack(record.recordContent)
+        discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+
+        dataBytes.packAll(record.recordVersion, OrientByte('d'), OrientByte(0))
+        discard connection.socket.send(addr(dataBytes.data[0]), dataBytes.data.len)
+         #dataBytes.packAll(OrientByte(32), connection.sessionID, record.clusterID, record.clusterPosition, OrientBoolean(true), record.recordContent, record.recordVersion, OrientByte('d'), OrientByte(0))
+
+    connection.recvResponseRecordUpdate(record)
+
 proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt = -1, fetchPlan: OrientString not nil = "*:0"): OrientRecords =
     discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
     result = connection.recvResponseCommand
 
+    # A single byte marks the end of the command response
+    discard connection.socket.unpackByte
+
 proc sqlQuery*(connection: var OrientConnection, query: OrientString not nil, onRecord: proc(record: var OrientRecord), nonTextLimit: OrientInt = -1, fetchPlan: OrientString not nil = "*:0") =
     discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
     connection.recvResponseCommand(onRecord)
+
+    # A single byte marks the end of the command response
+    discard connection.socket.unpackByte
 
 iterator sqlQuery*(connection: var OrientConnection, query: OrientString not nil, nonTextLimit: OrientInt = -1, fetchPlan: OrientString not nil = "*:0") =
     discard connection.send(newOrientSQLQuery(query, nonTextLimit, fetchPlan, newOrientRequestCommand(cast[OrientByte]('s'), "q")))
 
     for record in connection.recvResponseCommand:
         yield record
+
+    # A single byte marks the end of the command response
+    discard connection.socket.unpackByte
 
 proc newOrientDatabase*(databaseName: OrientString not nil, databaseType: OrientString not nil, userName: OrientString not nil, userPassword: OrientString not nil): OrientDatabase {.noSideEffect.} =
     result = (databaseName: databaseName, databaseType: databaseType, userName: userName, userPassword: userPassword)
